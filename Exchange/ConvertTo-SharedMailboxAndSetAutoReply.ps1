@@ -27,17 +27,18 @@ Connect-ExchangeOnline
 
 $Mbx = "user1", "user2", "user3"
 
-ForEach ($M in $Mbx) {
+foreach ($M in $Mbx) {
 Set-Mailbox -Identity $m -Type Shared
 }
 
 $AutoreplyStart = "03-Feb-2020 11:00"
 
- $InternalMessage = "Intern melding"
+$InternalMessage = "Intern melding"
 
- $ExternalMessage = "Ekstern melding"
+$ExternalMessage = "Ekstern melding"
 
-    ForEach ($M in $Mbx) {
-    # Set auto reply
+foreach ($M in $Mbx) {
+# Set auto reply
     Write-Host "Setting auto-reply for shared mailbox:" $M
-    Set-MailboxAutoReplyConfiguration -Identity $M -StartTime $Autoreplystart -AutoReplyState "Scheduled" -InternalMessage $InternalMessage –ExternalMessage  $ExternalMessage -ExternalAudience 'All' -CreateOOFEvent:$True }
+    Set-MailboxAutoReplyConfiguration -Identity $M -StartTime $Autoreplystart -AutoReplyState "Scheduled" -InternalMessage $InternalMessage –ExternalMessage  $ExternalMessage -ExternalAudience 'All' -CreateOOFEvent:$True 
+}

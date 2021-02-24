@@ -19,8 +19,8 @@
     Purpose/Change: Initial development
 #>
 
-#Connect-MsolService
-#Connect-ExchangeOnline
+Connect-MsolService
+Connect-ExchangeOnline
 
 $ErrorActionPreference = "SilentlyContinue"
 
@@ -78,22 +78,6 @@ Function Get-AzureMFAStatus {
 
 #Variables
 $Users = Get-Mailbox
-
-
-#-----------
-# DKIM SETUP
-#-----------
-
-Write-Host("Setting DKIM Signing config") -ForegroundColor Cyan
-
-foreach ($domain in Get-AcceptedDomain) {
-    $domain = $domain.DomainName
-    $domain = Get-DkimSigningConfig -Identity $domain | where {$_.Enabled -eq $false}
-    $domain = $domain.Domain
-    if ($domain -notcontains "onmicrosoft.com") {
-        New-DkimSigningConfig -DomainName $domain -Enabled $true
-    }
-}
 
 #-------------
 # ATP POLICIES
@@ -171,4 +155,100 @@ if ($MFAUsers -ne 0) {
     Write-Host("$MFAUsers user(s) have not enabled MFA") -ForegroundColor Red    
 } else {
     Write-Host("All users have enabled MFA") -ForegroundColor Green
+}
+
+#-----------
+# DKIM SETUP
+#-----------
+
+Write-Host("Setting DKIM Signing config") -ForegroundColor Cyan
+
+$DomainsHash = @{}
+$DkimDomains = Get-AcceptedDomain
+$Count = 0
+
+foreach ($domain in $DkimDomains) {
+    $Key = $Count += 1 
+    $DomainsHash += @{$Key = $Domain.DomainName}
+    #$domain.DomainName | % {$Domains += $domain.DomainName}
+    Write-Host $domain.DomainName
+}
+
+$DomainsString = $DomainsHash | Out-String
+
+Write-Host("List of domains without DKIM: `n" + $DomainsString) 
+
+$DomainSelection = Read-Host("Please select domain to enable DKIM for")
+$DomainSelection = [convert]::ToInt32($DomainSelection)
+
+$DkimDomain = $DomainsHash[$DomainSelection]
+
+if ($Dkimdomain -match (Get-DkimSigningConfig | ? {$_.DomainName -match $DkimDomain})) {
+    
+} else {
+    New-DkimSigningConfig -DomainName $DkimDomain -KeySize 2048 -Enabled $false
+}
+
+#New-DkimSigningConfig -DomainName $DkimDomain -KeySize 2048 -Enabled $false
+
+$Selector1 = Get-DkimSigningConfig -Identity $DkimDomain | select Selector1CNAME
+$Selector1 = $Selector1.Selector1CNAME
+$Selector2 = Get-DkimSigningConfig -Identity $DkimDomain | select Selector2CNAME
+$Selector2 = $Selector2.Selector1CNAME
+
+Write-Host("See below for information on what CNAME records to add to domain: `n 
+
+Domain:                 Type     TTL     Data
+selector1._Domainkey -- CNAME -- 3600 -- $Selector1
+selector2._Domainkey -- CNAME -- 3600 -- $Selector2
+")
+
+$SetDKIMForNewDomain = "Yes"
+While($SetDKIMForNewDomain -eq "Yes") {
+    $SetDKIMForNewDomain = Read-Host("Setup DKIM for another Domain? (Yes/No)") 
+    if ($SetDKIMForNewDomain -eq "No") {
+        break
+    }
+    else {
+    Write-Host("List of domains without DKIM: `n" + $DomainsString)
+
+    $DomainSelection = Read-Host("Please select domain to enable DKIM for")
+    $DomainSelection = [convert]::ToInt32($DomainSelection)
+    $DkimDomain = $DomainsHash[$DomainSelection]
+
+    New-DkimSigningConfig -DomainName $DkimDomain -KeySize 2048 -Enabled $false -WhatIf
+
+    $Selector1 = Get-DkimSigningConfig -Identity $DkimDomain | select Selector1CNAME
+    $Selector2 = Get-DkimSigningConfig -Identity $DkimDomain | select Selector2CNAME
+    $Selector2 = $Selector2.Selector1CNAME
+    
+    $Selector1 = $Selector1.Selector1CNAME
+    Write-Host("See below for information on what CNAME records to add to domain: `n 
+
+    Domain:                 Type     TTL     Data
+    selector1_.Domainkey -- CNAME -- 3600 -- $Selector1
+    selector2_.Domainkey -- CNAME -- 3600 -- $Selector2
+    ")
+    }
+}
+
+#-----------
+# DMARC SETUP
+#-----------
+
+$DmarcLevel = Read-Host("Do you want the strict [1], or less strict [2] DMARC setup?")
+
+if ($DmarcLevel -eq 2) {
+    Write-Host('Set the following TXT record for the domain(s):
+
+    Domain    Type   TTL     Data
+    _dmarc -- TXT -- 3600 -- "v=DMARC1; p=quarantine; sp=quarantine; pct=100; rua=mailto:dmarc@drift.innit.no; ruf=mailto:dmarc@drift.innit.no; fo=1"
+    ')
+}
+if ($DmarcLevel -eq 1) {
+    Write-Host('Set the following TXT record for the domain(s):
+
+    Domain    Type   TTL     Data
+    _dmarc -- TXT -- 3600 -- "v=DMARC1; p=quarantine; sp=quarantine"
+    ')
 }

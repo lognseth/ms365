@@ -43,7 +43,7 @@ Function Get-AzureMFAStatus {
  
     BEGIN {
         if ($SkipAdminCheck.IsPresent) {
-            $AdminUsers = Get-MsolRole -ErrorAction Stop | foreach {Get-MsolRoleMember -RoleObjectId $_.ObjectID} | Where-Object {$_.EmailAddress -ne $null} | Select EmailAddress -Unique | Sort-Object EmailAddress
+            $AdminUsers = Get-MsolRole -ErrorAction Stop | ForEach-Object {Get-MsolRoleMember -RoleObjectId $_.ObjectID} | Where-Object {$_.EmailAddress -ne $null} | Select-Object EmailAddress -Unique | Sort-Object EmailAddress
         }
     }
  
@@ -51,7 +51,7 @@ Function Get-AzureMFAStatus {
         if ($UserPrincipalName) {
             foreach ($User in $UserPrincipalName) {
                 try {
-                    Get-MsolUser -UserPrincipalName $User -ErrorAction Stop | select DisplayName, UserPrincipalName, `
+                    Get-MsolUser -UserPrincipalName $User -ErrorAction Stop | Select-Object DisplayName, UserPrincipalName, `
                         @{Name = 'isAdmin'; Expression = {if ($SkipAdminCheck) {Write-Output "-"} else {if ($AdminUsers -match $_.UserPrincipalName) {Write-Output $true} else {Write-Output $false}}}}, `
                         @{Name = 'MFAEnabled'; Expression={if ($_.StrongAuthenticationMethods) {Write-Output $true} else {Write-Output $false}}}
                               
@@ -66,7 +66,7 @@ Function Get-AzureMFAStatus {
                 }
             }
         } else {
-            $AllUsers = Get-MsolUser -MaxResults $MaxResults | Where-Object {$_.IsLicensed -eq $isLicensed} | select DisplayName, UserPrincipalName, `
+            $AllUsers = Get-MsolUser -MaxResults $MaxResults | Where-Object {$_.IsLicensed -eq $isLicensed} | Select-Object DisplayName, UserPrincipalName, `
                 @{Name = 'isAdmin'; Expression = {if ($SkipAdminCheck) {Write-Output "-"} else {if ($AdminUsers -match $_.UserPrincipalName) {Write-Output $true} else {Write-Output $false}}}}, `
                 @{Name = 'MFAEnabled'; Expression={if ($_.StrongAuthenticationMethods) {Write-Output $true} else {Write-Output $false}}}
  
@@ -86,7 +86,7 @@ $Users = Get-Mailbox
 Write-Host("Setting ATP Policies") -ForegroundColor Cyan
 
 $AcceptedDomains = Get-AcceptedDomain
-$PrimaryDomain = $AcceptedDomains | where {$_.Default -eq $true}
+$PrimaryDomain = $AcceptedDomains | Where-Object {$_.Default -eq $true}
 $PrimaryDomain = $PrimaryDomain.DomainName
 
 New-SafeAttachmentPolicy -Name "Default safe attachment policy" -Redirect $false -Action DynamicDelivery
@@ -95,6 +95,9 @@ New-AntiPhishPolicy -Name "Default AntiPhish Policy" -AdminDisplayName "Default 
 
 New-SafeAttachmentRule -Name "Default Safe attachment rule" -SafeAttachmentPolicy "Default safe attachment policy" -Enabled $true
 New-SafeLinksPolicy -Name "Default safe links policy" -ScanUrls $true -TrackClicks $true -EnableForInternalSenders $true
+
+New-HostedContentFilterPolicy -Name "Default Anti-Spam Policy" -HighConfidenceSpamAction Quarantine -SpamAction Quarantine -BulkThreshold 6
+New-HostedContentFilterRule -Name "Default Anti-Spam Rule" -HostedContentFilterPolicy "Default Anti-Spam Policy"
 
 #-------------
 # OME POLICIES
@@ -105,7 +108,7 @@ Write-Host("Setting OME Policies") -ForegroundColor Cyan
 if (Get-OMEConfiguration) {
     Write-Host("OME is configured for current organization. `nChecking that everything is set up correctly......") -ForegroundColor Green
     
-    $SenderAddress = Get-MsolUser -All | ? {$_.IsLicensed -eq $true} | select -Last 1
+    $SenderAddress = Get-MsolUser -All | Where-Object {$_.IsLicensed -eq $true} | Select-Object -Last 1
     $IRMCheck = Test-IRMConfiguration -Sender $SenderAddress.UserPrincipalName
     $IRM = $IRMCheck.Results.ToString()
     $Result = "OVERALL RESULT: PASS"
@@ -121,7 +124,7 @@ if (Get-OMEConfiguration) {
 else {
     New-OMEConfiguration -Identity "OME Configuration" -OTPEnabled $true
     Start-Sleep -Seconds 15
-    $SenderAddress = Get-MsolUser -All | ? {$_.IsLicensed -eq $true} | select -Last 1
+    $SenderAddress = Get-MsolUser -All | Where-Object {$_.IsLicensed -eq $true} | Select-Object -Last 1
     $IRMCheck = Test-IRMConfiguration -Sender $SenderAddress
     $IRM = $IRMCheck.Results.ToString()
     $Result = "OVERALL RESULT: PASS"
@@ -183,7 +186,7 @@ $DomainSelection = [convert]::ToInt32($DomainSelection)
 
 $DkimDomain = $DomainsHash[$DomainSelection]
 
-if ($Dkimdomain -match (Get-DkimSigningConfig | ? {$_.DomainName -match $DkimDomain})) {
+if ($Dkimdomain -match (Get-DkimSigningConfig | Where-Object {$_.DomainName -match $DkimDomain})) {
     
 } else {
     New-DkimSigningConfig -DomainName $DkimDomain -KeySize 2048 -Enabled $false
@@ -191,9 +194,9 @@ if ($Dkimdomain -match (Get-DkimSigningConfig | ? {$_.DomainName -match $DkimDom
 
 #New-DkimSigningConfig -DomainName $DkimDomain -KeySize 2048 -Enabled $false
 
-$Selector1 = Get-DkimSigningConfig -Identity $DkimDomain | select Selector1CNAME
+$Selector1 = Get-DkimSigningConfig -Identity $DkimDomain | Select-Object Selector1CNAME
 $Selector1 = $Selector1.Selector1CNAME
-$Selector2 = Get-DkimSigningConfig -Identity $DkimDomain | select Selector2CNAME
+$Selector2 = Get-DkimSigningConfig -Identity $DkimDomain | Select-Object Selector2CNAME
 $Selector2 = $Selector2.Selector1CNAME
 
 Write-Host("See below for information on what CNAME records to add to domain: `n 
@@ -218,8 +221,8 @@ While($SetDKIMForNewDomain -eq "Yes") {
 
     New-DkimSigningConfig -DomainName $DkimDomain -KeySize 2048 -Enabled $false -WhatIf
 
-    $Selector1 = Get-DkimSigningConfig -Identity $DkimDomain | select Selector1CNAME
-    $Selector2 = Get-DkimSigningConfig -Identity $DkimDomain | select Selector2CNAME
+    $Selector1 = Get-DkimSigningConfig -Identity $DkimDomain | Select-Object Selector1CNAME
+    $Selector2 = Get-DkimSigningConfig -Identity $DkimDomain | Select-Object Selector2CNAME
     $Selector2 = $Selector2.Selector1CNAME
     
     $Selector1 = $Selector1.Selector1CNAME
@@ -236,9 +239,9 @@ While($SetDKIMForNewDomain -eq "Yes") {
 # DMARC SETUP
 #-----------
 
-$DmarcLevel = Read-Host("Do you want the strict [1], or less strict [2] DMARC setup?")
+$DmarcLevel = Read-Host("Do you want the strict [0], or less strict [1] DMARC setup?")
 
-if ($DmarcLevel -eq 2) {
+if ($DmarcLevel -eq 0) {
     Write-Host('Set the following TXT record for the domain(s):
 
     Domain    Type   TTL     Data
@@ -252,3 +255,5 @@ if ($DmarcLevel -eq 1) {
     _dmarc -- TXT -- 3600 -- "v=DMARC1; p=quarantine; sp=quarantine"
     ')
 }
+
+Write-Host -f Magenta ("Regarding DKIM; Once this script has finished running, and you have added the CNAME records you will need to run the following command: `nSet-DkimSigningConfig -Identity $DkimDomain -Enabled `$true")

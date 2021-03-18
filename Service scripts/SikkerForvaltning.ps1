@@ -19,9 +19,6 @@
     Purpose/Change: Initial development
 #>
 
-Connect-MsolService
-Connect-ExchangeOnline
-
 $ErrorActionPreference = "SilentlyContinue"
 
 #Load functions
@@ -76,6 +73,19 @@ Function Get-AzureMFAStatus {
     END {}
 }
 
+$AdminMFA = Read-Host("Does your admin account use MFA?  [Y]/[N]")
+
+if ($AdminMFA -eq "Y") {
+    Write-host -f Magenta ("You'll be asked to sign in twice, this is normal.")    
+    Connect-MsolService
+    Connect-ExchangeOnline
+} 
+if ($AdminMFA -eq "N") {
+    $Creds = Get-Credential
+    Connect-MsolService -credential $Creds
+    Connect-ExchangeOnline -Credential $Creds
+}
+
 #Variables
 $Users = Get-Mailbox
 
@@ -91,13 +101,13 @@ $PrimaryDomain = $PrimaryDomain.DomainName
 
 New-SafeAttachmentPolicy -Name "Default safe attachment policy" -Redirect $false -Action DynamicDelivery
 
-New-AntiPhishPolicy -Name "Default AntiPhish Policy" -AdminDisplayName "Default AntiPhish Policy" -EnableMailboxIntelligenceProtection $true -MailboxIntelligenceProtectionAction Quarantine -EnableSimilarUsersSafetyTips $true -EnableSimilarDomainsSafetyTips $true -EnableUnusualCharactersSafetyTips $true
+New-AntiPhishPolicy -Name "Default AntiPhish Policy" -AdminDisplayName "Default AntiPhish Policy"
 
 New-SafeAttachmentRule -Name "Default Safe attachment rule" -SafeAttachmentPolicy "Default safe attachment policy" -Enabled $true
 New-SafeLinksPolicy -Name "Default safe links policy" -ScanUrls $true -TrackClicks $true -EnableForInternalSenders $true
 
 New-HostedContentFilterPolicy -Name "Default Anti-Spam Policy" -HighConfidenceSpamAction Quarantine -SpamAction Quarantine -BulkThreshold 6
-New-HostedContentFilterRule -Name "Default Anti-Spam Rule" -HostedContentFilterPolicy "Default Anti-Spam Policy"
+New-HostedContentFilterRule -Name "Default Anti-Spam Rule" -HostedContentFilterPolicy "Default Anti-Spam Policy" -RecipientDomainIs $PrimaryDomain
 
 #-------------
 # OME POLICIES
@@ -173,8 +183,6 @@ $Count = 0
 foreach ($domain in $DkimDomains) {
     $Key = $Count += 1 
     $DomainsHash += @{$Key = $Domain.DomainName}
-    #$domain.DomainName | % {$Domains += $domain.DomainName}
-    Write-Host $domain.DomainName
 }
 
 $DomainsString = $DomainsHash | Out-String
@@ -192,12 +200,10 @@ if ($Dkimdomain -match (Get-DkimSigningConfig | Where-Object {$_.DomainName -mat
     New-DkimSigningConfig -DomainName $DkimDomain -KeySize 2048 -Enabled $false
 }
 
-#New-DkimSigningConfig -DomainName $DkimDomain -KeySize 2048 -Enabled $false
-
 $Selector1 = Get-DkimSigningConfig -Identity $DkimDomain | Select-Object Selector1CNAME
 $Selector1 = $Selector1.Selector1CNAME
 $Selector2 = Get-DkimSigningConfig -Identity $DkimDomain | Select-Object Selector2CNAME
-$Selector2 = $Selector2.Selector1CNAME
+$Selector2 = $Selector2.Selector2CNAME
 
 Write-Host("See below for information on what CNAME records to add to domain: `n 
 
@@ -223,7 +229,7 @@ While($SetDKIMForNewDomain -eq "Yes") {
 
     $Selector1 = Get-DkimSigningConfig -Identity $DkimDomain | Select-Object Selector1CNAME
     $Selector2 = Get-DkimSigningConfig -Identity $DkimDomain | Select-Object Selector2CNAME
-    $Selector2 = $Selector2.Selector1CNAME
+    $Selector2 = $Selector2.Selector2CNAME
     
     $Selector1 = $Selector1.Selector1CNAME
     Write-Host("See below for information on what CNAME records to add to domain: `n 

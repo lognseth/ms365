@@ -7,6 +7,8 @@
 
 #>
 
+Connect-AzureAD
+
 $CsvPath = ""
 $UsersToInvite = Import-Csv -Path $CsvPath -Encoding UTF8
 

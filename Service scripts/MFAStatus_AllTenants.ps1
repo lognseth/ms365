@@ -65,3 +65,4 @@ $MFAState = foreach ($customer in $customers) {
  
 if ($MFAState.'Security Defaults Enabled' -eq $false -or $MFAState.'Conditional Access Enforced MFA') {
     $MFAState.userlist | Where-Object -Property "MFA Type" -eq "Disabled"
+}

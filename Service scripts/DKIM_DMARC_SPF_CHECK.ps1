@@ -12,7 +12,7 @@ $graphToken = New-PartnerAccessToken -ApplicationId $ApplicationId -Credential $
 #>
 Connect-MsolService #-AdGraphAccessToken $aadGraphToken.AccessToken -MsGraphAccessToken $graphToken.AccessToken
 
-$domains = Get-MsolPartnerContract -All | Get-MsolDomain | where-object -Property IsInitial -eq $false
+$domains = Get-MsolDomain | where-object -Property IsInitial -eq $false
 $Results = foreach ($Domain in $Domains) {
  
     $Selector1 = Resolve-DnsName -name "selector1._domainkey.$($Domain.name)" -Type CNAME -ErrorAction SilentlyContinue

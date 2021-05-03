@@ -1,5 +1,4 @@
-$Session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri https://outlook.office365.com/powershell-liveid/ -Credential $UserCredential -Authentication Basic -AllowRedirection
-Import-PSSession $Session
+Connect-ExchangeOnline
 
 $groups = Get-UnifiedGroup -ResultSize Unlimited
 #Evt om de er i csv fil
@@ -9,4 +8,4 @@ $groups | ForEach-Object {
     Set-UnifiedGroup -Identity $_.ExternalDirectoryObjectId -HiddenFromExchangeClientsEnabled:$true -HiddenFromAddressListsEnabled $true
 }
 
-$groups | Where-Object { $_.DisplayName -notlike "*alle*"} | Set-UnifiedGroup -HiddenFromExchangeClientsEnabled:$true -HiddenFromAddressListsEnabled:$true (edited) 
+$groups | Where-Object { $_.DisplayName -notlike "*alle*"} | Set-UnifiedGroup -HiddenFromExchangeClientsEnabled:$true -HiddenFromAddressListsEnabled:$true

@@ -73,18 +73,27 @@ Function Get-AzureMFAStatus {
     END {}
 }
 
-$AdminMFA = Read-Host("Does your admin account use MFA?  [Y]/[N]")
+$title = ""
+$msg     = "Does your account require MFA to sign in?"
+$options = "&Yes", "&No"
+$default = 1  # 0=Yes, 1=No
 
-if ($AdminMFA -eq "Y") {
-    Write-host -f Magenta ("You'll be asked to sign in twice, this is normal.")    
-    Connect-MsolService
-    Connect-ExchangeOnline
-} 
-if ($AdminMFA -eq "N") {
-    $Creds = Get-Credential
-    Connect-MsolService -credential $Creds
-    Connect-ExchangeOnline -Credential $Creds
-}
+do {
+    $response = $Host.UI.PromptForChoice($title, $msg, $options, $default)
+    if ($response -eq 0) {
+        #Prompt for sign in using MFA
+        Write-Host("Since you are using MFA; you will be prompted to sign in to each service individually") -f Magenta
+        Connect-MsolService
+        Connect-ExchangeOnline
+    }
+    if ($response -eq 1) {
+        #Prompt for sign in using basic / traditional auth.
+        Write-Host "Please enter valid Admin credentials" -f Magenta
+        $Creds = Get-Credential
+        Connect-ExchangeOnline -Credential $Creds
+        Connect-MsolService -Credential $Creds
+    }
+} until ($response -eq 1 -or $response -eq 0)
 
 #Variables
 $Users = Get-Mailbox
@@ -99,15 +108,12 @@ $AcceptedDomains = Get-AcceptedDomain
 $PrimaryDomain = $AcceptedDomains | Where-Object {$_.Default -eq $true}
 $PrimaryDomain = $PrimaryDomain.DomainName
 
-New-SafeAttachmentPolicy -Name "Default safe attachment policy" -Redirect $false -Action DynamicDelivery
+New-SafeAttachmentPolicy -Name "Default safe attachment policy" -Redirect $false -Action DynamicDelivery -Enabled $true
 
 New-AntiPhishPolicy -Name "Default AntiPhish Policy" -AdminDisplayName "Default AntiPhish Policy"
 
-New-SafeAttachmentRule -Name "Default Safe attachment rule" -SafeAttachmentPolicy "Default safe attachment policy" -Enabled $true
+New-SafeAttachmentRule -Name "Default Safe attachment rule" -SafeAttachmentPolicy "Default safe attachment policy" -Enabled $true  -RecipientDomainIs $PrimaryDomain
 New-SafeLinksPolicy -Name "Default safe links policy" -ScanUrls $true -TrackClicks $true -EnableForInternalSenders $true
-
-New-HostedContentFilterPolicy -Name "Default Anti-Spam Policy" -HighConfidenceSpamAction Quarantine -SpamAction Quarantine -BulkThreshold 6
-New-HostedContentFilterRule -Name "Default Anti-Spam Rule" -HostedContentFilterPolicy "Default Anti-Spam Policy" -RecipientDomainIs $PrimaryDomain
 
 #-------------
 # OME POLICIES
@@ -245,13 +251,15 @@ While($SetDKIMForNewDomain -eq "Yes") {
 # DMARC SETUP
 #-----------
 
-$DmarcLevel = Read-Host("Do you want the strict [0], or less strict [1] DMARC setup?")
+$DmarcLevel = Read-Host("Do you want the strict [0], less strict [1], or report-only [2] DMARC setup?")
 
 if ($DmarcLevel -eq 0) {
     Write-Host('Set the following TXT record for the domain(s):
 
     Domain    Type   TTL     Data
-    _dmarc -- TXT -- 3600 -- "v=DMARC1; p=quarantine; sp=quarantine; pct=100; rua=mailto:dmarc@drift.innit.no; ruf=mailto:dmarc@drift.innit.no; fo=1"
+    _dmarc -- TXT -- 3600 -- "v=DMARC1; p=reject; sp=reject; pct=100; rua=mailto:dmarc@drift.innit.no; ruf=mailto:dmarc@drift.innit.no; fo=1"
+    
+    Reports will be sent to dmarc@drift.innit.no
     ')
 }
 if ($DmarcLevel -eq 1) {
@@ -259,6 +267,15 @@ if ($DmarcLevel -eq 1) {
 
     Domain    Type   TTL     Data
     _dmarc -- TXT -- 3600 -- "v=DMARC1; p=quarantine; sp=quarantine"
+    ')
+}
+if ($DmarcLevel -eq 2) {
+    Write-Host('Set the following TXT record for the domain(s):
+
+    Domain    Type   TTL     Data
+    _dmarc -- TXT -- 3600 -- "v=DMARC1; p=none; sp=none; rua=dmarc@drift.innit.no
+    
+    Reports will be sent to dmarc@drift.innit.no
     ')
 }
 

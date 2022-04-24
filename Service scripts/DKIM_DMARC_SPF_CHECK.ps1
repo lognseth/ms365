@@ -14,12 +14,12 @@ Connect-MsolService #-AdGraphAccessToken $aadGraphToken.AccessToken -MsGraphAcce
 
 $domains = Get-MsolDomain | where-object -Property IsInitial -eq $false
 $Results = foreach ($Domain in $Domains) {
- 
+
     $Selector1 = Resolve-DnsName -name "selector1._domainkey.$($Domain.name)" -Type CNAME -ErrorAction SilentlyContinue
     $selector2 = Resolve-DnsName -name "selector2._domainkey.$($Domain.name)" -Type CNAME -ErrorAction SilentlyContinue
     $DMARC = Resolve-DnsName -name "_dmarc.$($Domain.Name)" -Type TXT -ErrorAction SilentlyContinue
     $SPF = Resolve-DnsName -name "$($Domain.name)" -Type TXT -ErrorAction SilentlyContinue | Where-Object { $_.strings -like 'v=spf1*' }
- 
+
     [PSCustomObject]@{
         'Domain'                     = $domain.Name
         "DKIM Selector 1 Configured" = [bool]$selector1
@@ -30,5 +30,5 @@ $Results = foreach ($Domain in $Domains) {
         'SPF Value'                  = $spf.strings
     }
 }
- 
+
 $results | format-table

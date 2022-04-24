@@ -1,6 +1,6 @@
 $ErrorActionPreference = "SilentlyContinue"
 
-$users = Get-EXOMailbox | ? {$_.PrimarySMTPAddress -match "@innit.no"} | Get-MailboxFolderStatistics | ? {$_.FolderType -eq "Calendar"} | select @{n="Identity"; e={$_.Identity.Replace("\",":\")}}
+$users = Get-EXOMailbox | ? {$_.PrimarySMTPAddress -match "@something.no"} | Get-MailboxFolderStatistics | ? {$_.FolderType -eq "Calendar"} | select @{n="Identity"; e={$_.Identity.Replace("\",":\")}}
 
 foreach ($user in $users) { 
     Write-Host -ForegroundColor green Setting permission for $($user.UserPrincipalName) 

@@ -49,9 +49,9 @@ $MFAState = foreach ($customer in $customers) {
                 Target = 'All Users'
             } 
         }
-             
+
     }
- 
+
     $enforced = if ($EnforcedForUsers | Where-Object -Property Target -eq "All Users") { $True } else { $false }
     [PSCustomObject]@{
         TenantName                        = $customer.DefaultDomainName
@@ -60,9 +60,9 @@ $MFAState = foreach ($customer in $customers) {
         'Conditional Access'              = $CAPolicies
         'Conditional Access Enforced MFA' = $Enforced
     }
- 
+
 }
- 
+
 if ($MFAState.'Security Defaults Enabled' -eq $false -or $MFAState.'Conditional Access Enforced MFA') {
     $MFAState.userlist | Where-Object -Property "MFA Type" -eq "Disabled"
 }
